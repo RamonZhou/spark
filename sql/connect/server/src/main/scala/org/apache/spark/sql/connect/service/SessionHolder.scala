@@ -595,6 +595,65 @@ case class SessionHolder(userId: String, sessionId: String, session: SparkSessio
   private[connect] val pythonAccumulator: Option[PythonAccumulator] =
     Try(session.sparkContext.collectionAccumulator[Array[Byte]]).toOption
 
+  // The environment to install in the Python worker processes that Spark launches for this
+  // session's Python functions. Held as one immutable value that is replaced wholesale rather than
+  // mutated, so a thread planning a Python function always observes a complete environment.
+  @volatile private var currentPythonWorkerEnvironment: PythonWorkerEnvironment =
+    PythonWorkerEnvironment.empty
+
+  /**
+   * This session's Python worker environment. Empty unless it has been set.
+   */
+  private[connect] def pythonWorkerEnvironment: PythonWorkerEnvironment =
+    currentPythonWorkerEnvironment
+
+  /**
+   * Replaces this session's Python worker environment.
+   *
+   * The whole environment is replaced: names absent from `variables` are no longer set, and an
+   * empty `variables` clears the environment. Validation happens before anything is stored, so a
+   * rejected argument leaves the previous environment in place rather than a partial one.
+   *
+   * @param variables
+   *   the environment variables to set, keyed by case-sensitive name.
+   * @param sensitiveKeys
+   *   the subset of `variables` keys whose values must be kept out of logs. An empty set with
+   *   non-empty `variables` means "not classified", and every value is then withheld.
+   */
+  private[connect] def setPythonWorkerEnvironment(
+      variables: Map[String, String],
+      sensitiveKeys: Set[String]): Unit = {
+    val next = PythonWorkerEnvironment.of(variables, sensitiveKeys)
+
+    // A name marked sensitive that does not name a variable means the caller's marking and its
+    // variables disagree. The name is ignored, but the disagreement is worth surfacing because it
+    // usually means a variable that was meant to be protected is spelled differently.
+    val unmatched = PythonWorkerEnvironment.unmatchedSensitiveKeys(variables, sensitiveKeys)
+    if (unmatched.nonEmpty) {
+      logWarning(
+        log"Ignoring ${MDC(LogKeys.COUNT, unmatched.size)} name(s) marked sensitive that are not" +
+          log" set as environment variables in session" +
+          log" ${MDC(LogKeys.SESSION_ID, sessionId)}:" +
+          log" ${MDC(LogKeys.KEY, unmatched.toSeq.sorted.mkString(", "))}")
+    }
+
+    currentPythonWorkerEnvironment = next
+  }
+
+  /**
+   * Copies the Python worker environment of `source` into this session.
+   *
+   * Cloning a session builds a new [[SessionHolder]], so state kept on the holder does not carry
+   * over by itself the way `SparkSession` configuration does. The clone belongs to the same user
+   * and inherits the source session's configuration, so it inherits this environment too.
+   *
+   * The copied environment is not re-validated: it was validated when it was set, and limits may
+   * have been lowered since, which must not make an existing session impossible to clone.
+   */
+  private[connect] def copyPythonWorkerEnvironmentFrom(source: SessionHolder): Unit = {
+    currentPythonWorkerEnvironment = source.pythonWorkerEnvironment
+  }
+
   /**
    * Transform a relation into a logical plan, using the plan cache if enabled. The plan cache is
    * enable only if `spark.connect.session.planCache.maxSize` is greater than zero AND
