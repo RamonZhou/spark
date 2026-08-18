@@ -71,9 +71,12 @@ private[connect] case class PythonWorkerEnvironment(
    * debuggable.
    */
   def redactedString: String = {
-    variables.toSeq.sortBy(_._1).map { case (key, value) =>
-      if (isSensitive(key)) s"$key=${PythonWorkerEnvironment.redactedValue}" else s"$key=$value"
-    }.mkString("{", ", ", "}")
+    variables.toSeq
+      .sortBy(_._1)
+      .map { case (key, value) =>
+        if (isSensitive(key)) s"$key=${PythonWorkerEnvironment.redactedValue}" else s"$key=$value"
+      }
+      .mkString("{", ", ", "}")
   }
 }
 
@@ -104,16 +107,16 @@ private[connect] object PythonWorkerEnvironment {
   /**
    * Validates `variables` and `sensitiveKeys` and builds an environment from them.
    *
-   * Validation is all-or-nothing: a rejected input throws and produces no environment, so a caller
-   * that keeps the previous environment on failure never installs a partially applied one.
+   * Validation is all-or-nothing: a rejected input throws and produces no environment, so a
+   * caller that keeps the previous environment on failure never installs a partially applied one.
    *
    * These are internal precondition checks. Nothing user-facing reaches this method yet, so a
    * rejection is a caller error rather than something a user can provoke, and it is reported as
    * such. Turning these into user-facing error conditions belongs with the public API that first
    * makes them reachable, when their wording can be reviewed as user-visible text.
    *
-   * A message may name a variable but never carries its value, and a name is truncated rather than
-   * echoed whole, so that a rejection cannot leak a credential into a log or a stack trace.
+   * A message may name a variable but never carries its value, and a name is truncated rather
+   * than echoed whole, so that a rejection cannot leak a credential into a log or a stack trace.
    *
    * When `variables` is non-empty and `sensitiveKeys` is empty, every key is marked sensitive. An
    * absent marking means "not classified", and withholding values is the safe reading of that.
@@ -121,9 +124,7 @@ private[connect] object PythonWorkerEnvironment {
    * @throws IllegalArgumentException
    *   if a name is malformed or too long, a value is null, or the collection exceeds a limit.
    */
-  def of(
-      variables: Map[String, String],
-      sensitiveKeys: Set[String]): PythonWorkerEnvironment = {
+  def of(variables: Map[String, String], sensitiveKeys: Set[String]): PythonWorkerEnvironment = {
     val conf = SparkEnv.get.conf
     val maxCount = conf.get(Connect.CONNECT_PYTHON_WORKER_ENV_MAX_VARIABLES)
     val maxKeyLength = conf.get(Connect.CONNECT_PYTHON_WORKER_ENV_MAX_KEY_LENGTH)

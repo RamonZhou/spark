@@ -397,9 +397,10 @@ object Connect {
 
   val CONNECT_PYTHON_WORKER_ENV_MAX_TOTAL_SIZE_BYTES =
     buildStaticConf("spark.connect.session.pythonWorkerEnvironment.maxTotalSizeBytes")
-      .doc("Maximum total size, in bytes, of the environment variables set for the Python worker" +
-        " processes of a Spark Connect session. Measured as the sum of the UTF-8 encoded lengths" +
-        " of every name and every value.")
+      .doc(
+        "Maximum total size, in bytes, of the environment variables set for the Python" +
+          " worker processes of a Spark Connect session. Measured as the sum of the UTF-8" +
+          " lengths of every name and every value.")
       .version("4.4.0")
       .internal()
       .longConf
