@@ -372,6 +372,40 @@ object Connect {
       .booleanConf
       .createWithDefault(true)
 
+  // Limits on the session-scoped environment installed in Python worker processes. They bound the
+  // server memory a session can hold, so they are cluster-level rather than session-level: a client
+  // must not be able to raise its own bound. They are deliberately no tighter than the limits any
+  // caller further upstream applies, so that this layer does not reject input already accepted
+  // there.
+  val CONNECT_PYTHON_WORKER_ENV_MAX_VARIABLES =
+    buildStaticConf("spark.connect.session.pythonWorkerEnvironment.maxVariables")
+      .doc("Maximum number of environment variables that can be set for the Python worker" +
+        " processes of a single Spark Connect session.")
+      .version("4.4.0")
+      .internal()
+      .intConf
+      .createWithDefault(100)
+
+  val CONNECT_PYTHON_WORKER_ENV_MAX_KEY_LENGTH =
+    buildStaticConf("spark.connect.session.pythonWorkerEnvironment.maxKeyLength")
+      .doc("Maximum number of characters in the name of an environment variable set for the" +
+        " Python worker processes of a Spark Connect session.")
+      .version("4.4.0")
+      .internal()
+      .intConf
+      .createWithDefault(512)
+
+  val CONNECT_PYTHON_WORKER_ENV_MAX_TOTAL_SIZE_BYTES =
+    buildStaticConf("spark.connect.session.pythonWorkerEnvironment.maxTotalSizeBytes")
+      .doc(
+        "Maximum total size, in bytes, of the environment variables set for the Python" +
+          " worker processes of a Spark Connect session. Measured as the sum of the UTF-8" +
+          " lengths of every name and every value.")
+      .version("4.4.0")
+      .internal()
+      .longConf
+      .createWithDefault(128 * 1024)
+
   val CONNECT_INACTIVE_OPERATIONS_CACHE_EXPIRATION_MINS =
     buildStaticConf("spark.connect.session.inactiveOperations.cacheExpiration")
       .doc(

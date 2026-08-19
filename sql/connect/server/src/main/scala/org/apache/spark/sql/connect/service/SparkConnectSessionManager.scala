@@ -171,6 +171,9 @@ class SparkConnectSessionManager extends Logging {
 
           val newHolder = SessionHolder(newKey.userId, newKey.sessionId, clonedSparkSession)
           newHolder.initializeSession()
+          // State kept on the SessionHolder rather than on the SparkSession is not covered by
+          // cloneSession() above and has to be carried over explicitly.
+          newHolder.copyPythonWorkerEnvironmentFrom(sourceSessionHolder)
           newHolder
         } else {
           // A session was created in the meantime.
